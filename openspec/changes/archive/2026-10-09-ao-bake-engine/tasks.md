@@ -2,7 +2,7 @@
 
 ## 1. Engine foundation
 
-- [ ] 1.1 Add Vitest + `npm test` script and a CI test step in the deploy workflow; verify CI runs tests on push
+- [x] 1.1 Add Vitest + `npm test` script and a CI test step in the deploy workflow; verify CI runs tests on push
 - [x] 1.2 Implement weld map (spatial hash over positions, canonical vertex fan-out) in `src/baker/kernel.ts`; verify with unit test: duplicated vertices across a UV seam map to one canonical vertex
 - [x] 1.3 Implement world-space proxy assembly (per-mesh transforms, rest/bind pose, missing-NORMAL fallback) and merged-scene MeshBVH build; verify with unit test: a translated/rotated mesh bakes identically to a pre-transformed copy
 

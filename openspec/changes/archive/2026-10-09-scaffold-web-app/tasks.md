@@ -14,8 +14,8 @@
 
 ## 3. Deployment
 
-- [ ] 3.1 Add `.github/workflows/deploy.yml` (npm ci, lint, typecheck, build, upload `dist/`, deploy-pages, concurrency group); verify the Action succeeds on push to main
-- [ ] 3.2 Smoke-check the deployed Pages URL: app loads, no 404s in the network tab, drop a GLB and orbit it
+- [x] 3.1 Add `.github/workflows/deploy.yml` (npm ci, lint, typecheck, build, upload `dist/`, deploy-pages, concurrency group); verify the Action succeeds on push to main
+- [x] 3.2 Smoke-check the deployed Pages URL: app loads, no 404s in the network tab, drop a GLB and orbit it
 
 ## Workflow follow-up
 
