@@ -42,6 +42,7 @@ describe('collectBundle', () => {
     const result = await collectBundle([entry('model.glb', GLB_BYTES)]);
     expect(result.name).toBe('model.glb');
     expect(result.bytes).toEqual(GLB_BYTES);
+    expect(result.missingTextures).toEqual([]);
   });
 
   it('errors when no model file is present', async () => {
@@ -97,15 +98,57 @@ describe('collectBundle', () => {
     ).resolves.toBeDefined();
   });
 
-  it('names the missing file when a resource is absent', async () => {
+  it('tolerates a missing texture and reports it as missingTextures', async () => {
+    const gltf = JSON.stringify({
+      asset: { version: '2.0' },
+      buffers: [{ uri: 'model.bin', byteLength: 4 }],
+      images: [{ uri: 'textures/diffuse.png' }],
+    });
+    const result = await collectBundle([entry('model.gltf', gltf), entry('model.bin', new Uint8Array(4))]);
+    expect(result.missingTextures).toEqual(['textures/diffuse.png']);
+    expect(isGlbContainerSafe(result.bytes)).toBe(true);
+  });
+
+  it('still errors naming a missing .bin even when a texture is present', async () => {
     const gltf = JSON.stringify({
       asset: { version: '2.0' },
       buffers: [{ uri: 'model.bin', byteLength: 4 }],
       images: [{ uri: 'textures/diffuse.png' }],
     });
     await expect(
-      collectBundle([entry('model.gltf', gltf), entry('model.bin', new Uint8Array(4))]),
-    ).rejects.toThrow(/textures\/diffuse\.png/);
+      collectBundle([entry('model.gltf', gltf), entry('diffuse.png', PNG_1PX)]),
+    ).rejects.toThrow(/model\.bin/);
+  });
+
+  it('errors when a texture and a buffer are both missing', async () => {
+    const gltf = JSON.stringify({
+      asset: { version: '2.0' },
+      buffers: [{ uri: 'model.bin', byteLength: 4 }],
+      images: [{ uri: 'textures/diffuse.png' }],
+    });
+    await expect(collectBundle([entry('model.gltf', gltf)])).rejects.toThrow(/model\.bin/);
+  });
+
+  it('dedupes a missing texture referenced by multiple images', async () => {
+    const gltf = JSON.stringify({
+      asset: { version: '2.0' },
+      buffers: [{ uri: 'model.bin', byteLength: 4 }],
+      images: [{ uri: 'shared.png' }, { uri: 'shared.png' }],
+    });
+    const result = await collectBundle([entry('model.gltf', gltf), entry('model.bin', new Uint8Array(4))]);
+    expect(result.missingTextures).toEqual(['shared.png']);
+  });
+
+  it('loads a standalone .gltf with a data-URI buffer but external textures', async () => {
+    const bin = 'AAAAAAA='; // 4 zero bytes
+    const gltf = JSON.stringify({
+      asset: { version: '2.0' },
+      buffers: [{ uri: `data:application/octet-stream;base64,${bin}`, byteLength: 4 }],
+      images: [{ uri: 'textures/diffuse.png' }, { uri: 'textures/normal.png' }],
+    });
+    const result = await collectBundle([entry('model.gltf', gltf)]);
+    expect(result.missingTextures).toEqual(['textures/diffuse.png', 'textures/normal.png']);
+    expect(isGlbContainerSafe(result.bytes)).toBe(true);
   });
 
   it('loads a .gltf inside a zip with its resources', async () => {

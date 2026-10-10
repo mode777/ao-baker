@@ -171,24 +171,36 @@ function parseGltfJson(bytes: Uint8Array, name: string): Record<string, unknown>
   }
 }
 
-function externalUris(json: Record<string, unknown>): string[] {
-  const uris: string[] = [];
-  const buffers = (json.buffers as { uri?: string }[] | undefined) ?? [];
-  const images = (json.images as { uri?: string }[] | undefined) ?? [];
-  for (const uri of [...buffers, ...images].map((r) => r.uri ?? '')) {
+function externalUris(json: Record<string, unknown>): { buffers: string[]; images: string[] } {
+  const bufferUris: string[] = [];
+  for (const uri of (((json.buffers as { uri?: string }[] | undefined) ?? []).map((r) => r.uri ?? ''))) {
     if (uri && !uri.startsWith('data:')) {
-      uris.push(uri);
+      bufferUris.push(uri);
     }
   }
-  return uris;
+  const imageUris: string[] = [];
+  for (const uri of (((json.images as { uri?: string }[] | undefined) ?? []).map((r) => r.uri ?? ''))) {
+    if (uri && !uri.startsWith('data:')) {
+      imageUris.push(uri);
+    }
+  }
+  return { buffers: bufferUris, images: imageUris };
+}
+
+/** The loader's input: a self-contained GLB plus which textures were dropped. */
+export interface CollectedBundle extends LoadedFile {
+  /** External texture URIs that could not be resolved; the model loads untextured. */
+  missingTextures: string[];
 }
 
 /**
  * Turns a set of provided files into the single GLB (or embedded .gltf
  * converted to GLB) the loader consumes. Throws BundleError with a
- * user-presentable message when the input is unusable.
+ * user-presentable message when the input is unusable. Missing external
+ * textures are tolerated (the model loads untextured) and reported via
+ * missingTextures; missing external buffers remain fatal.
  */
-export async function collectBundle(entries: InputEntry[]): Promise<LoadedFile> {
+export async function collectBundle(entries: InputEntry[]): Promise<CollectedBundle> {
   if (entries.length === 0) {
     throw new BundleError('No files provided.');
   }
@@ -200,36 +212,42 @@ export async function collectBundle(entries: InputEntry[]): Promise<LoadedFile> 
       throw new BundleError(`Not a valid GLB file: ${primary.entry.path}`);
     }
     const name = primary.entry.path.split('/').pop() ?? primary.entry.path;
-    return { name, bytes };
+    return { name, bytes, missingTextures: [] };
   }
 
   const json = parseGltfJson(await primary.entry.read(), primary.entry.path);
   const externals = externalUris(json);
   const others = expanded.filter((e) => e !== primary.entry);
-  if (others.length === 0 && externals.length > 0) {
+  if (others.length === 0 && externals.buffers.length > 0) {
     throw new BundleError(
-      `Missing external resources: ${externals.join(', ')}. Drop them together with the .gltf file (or use a zip / folder).`,
+      `Missing external resources: ${externals.buffers.join(', ')}. Drop them together with the .gltf file (or use a zip / folder).`,
     );
   }
   const resolve = makeResolver(others.length > 0 ? others : entries);
-  const missing: string[] = [];
+  const bufferSet = new Set(externals.buffers);
+  const missingBuffers: string[] = [];
+  const missingTextures = new Set<string>();
   const resolved = new Map<string, Uint8Array>();
-  for (const uri of externals) {
+  for (const uri of [...externals.buffers, ...externals.images]) {
     const entry = resolve(uri);
     if (!entry) {
-      missing.push(uri);
+      if (bufferSet.has(uri)) {
+        missingBuffers.push(uri);
+      } else {
+        missingTextures.add(uri);
+      }
       continue;
     }
     resolved.set(uri, await entry.read());
   }
-  if (missing.length > 0) {
+  if (missingBuffers.length > 0) {
     throw new BundleError(
-      `Missing external resources: ${missing.join(', ')}. Drop them together with the .gltf file (or use a zip / folder).`,
+      `Missing external resources: ${missingBuffers.join(', ')}. Drop them together with the .gltf file (or use a zip / folder).`,
     );
   }
   const bytes = await packGltfToGlb(json, async (uri) => resolved.get(uri) ?? null);
   const name = (primary.entry.path.split('/').pop() ?? 'model.gltf').replace(/\.gltf$/i, '.glb');
-  return { name, bytes };
+  return { name, bytes, missingTextures: [...missingTextures] };
 }
 
 // re-exported for convenience so callers share one import site
