@@ -23,7 +23,7 @@
 ## 5. Documentation and release check
 
 - [x] 5.1 Update README usage section (supported inputs: GLB, .gltf bundles, folders, zips, embedded .gltf; packed-GLB export note); verify README renders on GitHub
-- [ ] 5.2 Full check `npm run lint && npm run typecheck && npm test && npm run build`; push and verify the deployed Pages URL accepts a multi-file bundle; report bundle-size delta (fflate)
+- [x] 5.2 Full check `npm run lint && npm run typecheck && npm test && npm run build`; push and verify the deployed Pages URL accepts a multi-file bundle; report bundle-size delta (fflate)
 
 ## Workflow follow-up
 
