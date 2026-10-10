@@ -15,9 +15,10 @@ All input funnels through one pipeline: `collectBundle` (src/loader/bundle.ts) t
 
 **Non-Goals:**
 
-- No change to GLB input (already self-contained) or to texture decoding (KTX2/Basis behavior stays as-is).
+- No change to texture decoding (KTX2/Basis behavior stays as-is).
 - No new file-resolution attempts (no network fetches, no prompting to re-drop).
 - No partial-asset recovery for missing buffers.
+- (Removed) GLB input was previously assumed self-contained; real-world GLBs can reference external image URIs (gltf-transform's `binaryToJSON` rejects them). Such GLBs are now handled by the same drop-and-warn policy — see D5.
 
 ## Decisions
 
@@ -28,6 +29,8 @@ All input funnels through one pipeline: `collectBundle` (src/loader/bundle.ts) t
 - **D3: Warning flows through the existing `LoadIssue` pattern.** `loadFromEntries` converts `missingTextures` into a warning ("Loaded without textures — missing: a.png, b.jpg"), joins it with `validateScene` warnings, and shows the combined message in the banner (replacing today's first-warning-only behavior; messages joined with a space). No new UI surface, no error styling.
 
 - **D4: Packer contract change mirrors the bundle policy.** `packGltfToGlb` drops images whose `resolve` yields null instead of throwing; buffers still throw (the bundle layer guarantees buffers are present, so this stays a defensive invariant). This keeps the packer usable for future callers without re-encoding the missing-set rule.
+
+- **D5: GLB input with external image URIs gets the same treatment.** A GLB whose JSON references external image URIs (non-self-contained, rejected by gltf-transform's `binaryToJSON`) previously aborted the load. `collectBundle` now parses the GLB's JSON chunk, drops the externally-referenced images via the same `pruneDroppedTextures` surgery, rebuilds the container with the original BIN chunk, and reports the dropped URIs as `missingTextures`. GLBs with no external image references pass through byte-for-byte as before. Embedded (bufferView / data-URI) images are untouched; external buffer URIs remain a hard error (geometry missing).
 
 ## Risks / Trade-offs
 

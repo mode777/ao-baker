@@ -1,6 +1,6 @@
 import { unzip } from 'fflate';
 import { isGlbContainer } from './glbContainer';
-import { packGltfToGlb } from './pack';
+import { packGltfToGlb, stripExternalGlbImages } from './pack';
 
 /** A file handed to the loader: name (with extension) plus full contents. */
 export interface LoadedFile {
@@ -212,6 +212,12 @@ export async function collectBundle(entries: InputEntry[]): Promise<CollectedBun
       throw new BundleError(`Not a valid GLB file: ${primary.entry.path}`);
     }
     const name = primary.entry.path.split('/').pop() ?? primary.entry.path;
+    // a GLB can still reference external texture URIs; drop those like a
+    // .gltf bundle with missing textures, keeping the model loadable
+    const stripped = stripExternalGlbImages(bytes);
+    if (stripped) {
+      return { name, bytes: stripped.bytes, missingTextures: stripped.missingTextures };
+    }
     return { name, bytes, missingTextures: [] };
   }
 

@@ -6,6 +6,8 @@
  * pipeline (preview, bake, export) unchanged.
  */
 
+import { buildGlb, parseGlb } from './glbContainer';
+
 export type GltfJson = Record<string, unknown>;
 type BufferDef = { uri?: string; byteLength: number; name?: string };
 type BufferViewDef = { buffer: number; byteOffset: number; byteLength: number };
@@ -138,6 +140,52 @@ function imageMimeFromUri(uri: string): string {
   return 'application/octet-stream';
 }
 
+/**
+ * Strips externally-referenced images from a GLB container: real-world GLBs
+ * sometimes reference external texture URIs despite being single files,
+ * which makes them unparseable downstream. Drops those images (and their
+ * textures/material references) and rebuilds the container with the
+ * original BIN chunk. Returns null when there is nothing external to strip
+ * (the input bytes are used as-is).
+ */
+export function stripExternalGlbImages(bytes: Uint8Array): {
+  bytes: Uint8Array;
+  missingTextures: string[];
+} | null {
+  const { json, bin } = parseGlb(bytes);
+  const images = (json.images as ImageDef[] | undefined) ?? [];
+  const external = new Set<number>();
+  const uris = new Set<string>();
+  for (const [index, image] of images.entries()) {
+    if (image.uri && !image.uri.startsWith('data:')) {
+      external.add(index);
+      uris.add(image.uri);
+    }
+  }
+  if (external.size === 0) {
+    return null;
+  }
+  const pruned = pruneDroppedTextures(json, external);
+  const imagesOut = images.filter((_, index) => !external.has(index));
+  const output: GltfJson = { ...json };
+  if (imagesOut.length > 0) {
+    output.images = imagesOut;
+  } else {
+    delete output.images;
+  }
+  if (pruned.textures.length > 0) {
+    output.textures = pruned.textures;
+  } else {
+    delete output.textures;
+  }
+  if (pruned.materials.length > 0) {
+    output.materials = pruned.materials;
+  } else {
+    delete output.materials;
+  }
+  return { bytes: new Uint8Array(buildGlb(output, bin)), missingTextures: [...uris] };
+}
+
 export async function packGltfToGlb(
   json: GltfJson,
   resolve: (uri: string) => Promise<Uint8Array | null>,
@@ -251,6 +299,5 @@ export async function packGltfToGlb(
       }
     }
   }
-  const { buildGlb } = await import('./glbContainer');
   return new Uint8Array(buildGlb(output, bin.length > 0 ? bin : null));
 }

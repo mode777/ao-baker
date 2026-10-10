@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { buildMeshoptTriangleGlb, buildUncompressedTriangleGlb } from '../testing/glb';
+import { buildGlb } from './glbContainer';
 import { loadModel, ModelLoadError, type LoadedFile } from './loadModel';
 
 function loadedFromBytes(bytes: ArrayBuffer | Uint8Array, name = 'model.glb'): LoadedFile {
@@ -50,5 +51,15 @@ describe('loadModel', () => {
   it('returns the model name', async () => {
     const model = await loadModel(loadedFromBytes(buildUncompressedTriangleGlb(), 'thing.glb'));
     expect(model.name).toBe('thing.glb');
+  });
+
+  it('rejects a GLB that references external buffers with ModelLoadError', async () => {
+    const bytes = new Uint8Array(
+      buildGlb(
+        { asset: { version: '2.0' }, buffers: [{ uri: 'geometry.bin', byteLength: 4 }] },
+        null,
+      ),
+    );
+    await expect(loadModel(loadedFromBytes(bytes))).rejects.toBeInstanceOf(ModelLoadError);
   });
 });

@@ -17,3 +17,8 @@
 ## 4. Full check
 
 - [x] 4.1 Run `npm run lint && npm run typecheck && npm test && npm run build`; verify all green and `dist` builds cleanly
+
+## 5. GLB input with external texture references
+
+- [x] 5.1 In `src/loader/pack.ts` (+ `glbContainer.ts` parse helper), add GLB strip: a GLB whose JSON references external image URIs has those images (and their textures/material references) dropped and is rebuilt with its original BIN chunk; GLBs without external image references pass through byte-for-byte; verify with unit tests: external-image GLB loads untextured with `missingTextures` reported, embedded/data-URI images untouched, exported/preview parse works, external buffer URIs still error
+- [x] 5.2 Verify end-to-end in headless browser: drop a GLB referencing an external texture → model renders, warning names it, bake and export run, exported GLB has no reference to the dropped texture; verify combined warning still works; then `npm run lint && npm run typecheck && npm test && npm run build` green

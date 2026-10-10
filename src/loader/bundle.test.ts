@@ -45,6 +45,56 @@ describe('collectBundle', () => {
     expect(result.missingTextures).toEqual([]);
   });
 
+  it('strips external image references from a GLB and reports them', async () => {
+    const quad = buildGlb({
+      asset: { version: '2.0' },
+      scene: 0,
+      scenes: [{ nodes: [0] }],
+      nodes: [{ mesh: 0 }],
+      meshes: [{ primitives: [{ attributes: { POSITION: 0 }, material: 0 }] }],
+      materials: [
+        {
+          pbrMetallicRoughness: {
+            baseColorTexture: { index: 1 }, // -> embedded image (stays)
+            metallicRoughnessTexture: { index: 0 }, // -> external image (goes)
+          },
+          normalTexture: { index: 1, scale: 2 },
+        },
+      ],
+      textures: [{ source: 0 }, { source: 1 }],
+      samplers: [{}],
+      images: [{ uri: 'external.png' }, { bufferView: 0, mimeType: 'image/png' }],
+      accessors: [
+        { bufferView: 0, componentType: 5126, count: 4, type: 'VEC3', min: [0, 0, 0], max: [1, 1, 1] },
+      ],
+      bufferViews: [{ buffer: 0, byteOffset: 0, byteLength: 48 }],
+      buffers: [{ byteLength: 48 }],
+    }, new Uint8Array(48));
+    const result = await collectBundle([entry('model.glb', new Uint8Array(quad))]);
+    expect(result.missingTextures).toEqual(['external.png']);
+    expect(isGlbContainerSafe(result.bytes)).toBe(true);
+    const view = new DataView(result.bytes.buffer, result.bytes.byteOffset, result.bytes.byteLength);
+    const jsonLength = view.getUint32(12, true);
+    const json = JSON.parse(new TextDecoder().decode(result.bytes.subarray(20, 20 + jsonLength)));
+    expect(json.images).toEqual([{ bufferView: 0, mimeType: 'image/png' }]);
+    expect(json.textures.map((t: { source: number }) => t.source)).toEqual([0]);
+    expect(json.materials[0].pbrMetallicRoughness.baseColorTexture.index).toBe(0);
+    expect(json.materials[0].pbrMetallicRoughness.metallicRoughnessTexture).toBeUndefined();
+    expect(json.materials[0].normalTexture).toEqual({ index: 0, scale: 2 });
+    expect(JSON.stringify(json)).not.toContain('external.png');
+  });
+
+  it('errors on a GLB referencing an external buffer at load time', async () => {
+    const broken = buildGlb(
+      { asset: { version: '2.0' }, buffers: [{ uri: 'geometry.bin', byteLength: 4 }] },
+      null,
+    );
+    // passes through bundle collection (buffer errors are a load-layer concern)
+    await expect(
+      collectBundle([entry('model.glb', new Uint8Array(broken))]),
+    ).resolves.toBeDefined();
+  });
+
   it('errors when no model file is present', async () => {
     await expect(collectBundle([entry('a.bin', new Uint8Array(4))])).rejects.toThrow(BundleError);
     await expect(collectBundle([])).rejects.toThrow(BundleError);

@@ -37,3 +37,32 @@ export function isGlbContainer(bytes: Uint8Array): boolean {
   }
   return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(0, true) === GLB_MAGIC;
 }
+
+/** The two payloads of a GLB container: its glTF JSON and optional BIN chunk. */
+export interface GlbContents {
+  json: Record<string, unknown>;
+  bin: Uint8Array | null;
+}
+
+/** Splits a GLB container into its JSON and BIN chunks. */
+export function parseGlb(bytes: Uint8Array): GlbContents {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let json: Record<string, unknown> | null = null;
+  let bin: Uint8Array | null = null;
+  let offset = 12;
+  while (offset + 8 <= bytes.length) {
+    const length = view.getUint32(offset, true);
+    const type = view.getUint32(offset + 4, true);
+    const chunk = bytes.subarray(offset + 8, offset + 8 + length);
+    if (type === CHUNK_JSON) {
+      json = JSON.parse(new TextDecoder().decode(chunk)) as Record<string, unknown>;
+    } else if (type === CHUNK_BIN) {
+      bin = chunk;
+    }
+    offset += 8 + length;
+  }
+  if (!json) {
+    throw new Error('GLB container has no JSON chunk');
+  }
+  return { json, bin };
+}
