@@ -47,6 +47,7 @@ body {
 }
 
 .dropzone-box {
+  pointer-events: auto;
   padding: 2.5rem 3.5rem;
   border: 2px dashed var(--border);
   border-radius: 12px;
@@ -255,6 +256,32 @@ body {
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 0.25rem 0.35rem;
+}
+
+.pickers {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.pickers button {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.pickers button:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.pickers input[type='file'] {
+  display: none;
 }
 
 #warning-banner {

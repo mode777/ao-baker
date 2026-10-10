@@ -8,11 +8,17 @@ export a new GLB with baked `COLOR_0`. No uploads, no backend, no install.
 
 ## Usage
 
-1. Open the app and **drop a `.glb`** onto the page.
+1. Open the app and **load a model**: drop a `.glb`, a `.gltf` (together with
+   its `.bin`/texture files), an asset **folder**, or a **zip** bundle onto
+   the page — or use the file/folder pickers under the prompt.
 2. Adjust the bake parameters (or pick a preset) and click **Bake AO**.
 3. Inspect the result with the **View** modes: `Original`, `Baked`, or
    `AO only` (unlit — the best way to judge the bake itself).
 4. Click **Export GLB** to download `<your-file>-baked.glb`.
+
+Multi-file `.gltf` assets are packed into a self-contained GLB in memory, so
+exporting one produces a single packed `.glb` — handy even without baking.
+Dropped files never leave your browser.
 
 The camera orbits with the left mouse button, zooms with the wheel, and pans
 with the right button. Baking runs in a background worker, so the viewport
@@ -39,6 +45,13 @@ extensions, extras, and node hierarchy are carried through untouched — the
 export is your file plus baked vertex colors. This is why export uses
 [gltf-transform](https://gltf-transform.dev/) rather than re-serializing the
 scene.
+
+Input formats:
+
+- **GLB** — the single-file binary container (recommended).
+- **gltf + resources** — drop the `.gltf` together with its `.bin` and
+  texture files, drop the containing folder, or drop a zip of the bundle.
+- **Embedded .gltf** — resources inline as data URIs load as one file.
 
 Compressed inputs are supported:
 

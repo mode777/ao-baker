@@ -73,7 +73,13 @@ const PRESERVED_EXTENSIONS = [
   KHRTextureTransform,
   KHRXMP,
 ];
+export interface LoadedFile {
+  name: string;
+  bytes: Uint8Array;
+}
+
 export interface LoadedModel {
+  name: string;
   scene: THREE.Object3D;
   /** gltf-transform Document: the export source of truth (edited surgically). */
   document: Document;
@@ -181,8 +187,8 @@ function parseScene(buffer: ArrayBuffer): Promise<THREE.Object3D> {
   });
 }
 
-export async function loadModel(file: File): Promise<LoadedModel> {
-  const buffer = await file.arrayBuffer();
+export async function loadModel(input: LoadedFile): Promise<LoadedModel> {
+  const buffer = input.bytes.slice().buffer as ArrayBuffer;
   const bytes = new Uint8Array(buffer);
   const [scene, document] = await Promise.all([
     parseScene(buffer),
@@ -199,5 +205,5 @@ export async function loadModel(file: File): Promise<LoadedModel> {
         });
       }),
   ]);
-  return { scene, document };
+  return { name: input.name, scene, document };
 }

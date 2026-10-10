@@ -5,11 +5,6 @@ import { injectVertexColors, serializeGlb } from './exportGlb';
 import { buildDracoFixtureGlb, buildRichFixtureGlb, createTestIO } from '../testing/fixtures';
 import type { Document } from '@gltf-transform/core';
 
-function asFile(bytes: Uint8Array, name = 'rich.glb'): File {
-  const copy = new Uint8Array(bytes.length);
-  copy.set(bytes);
-  return new File([copy.buffer as ArrayBuffer], name);
-}
 
 function gradientColors(total: number): Float32Array {
   const colors = new Float32Array(total * 3);
@@ -50,7 +45,7 @@ function structureSnapshot(document: Document) {
 describe('injectVertexColors + serializeGlb', () => {
   it('round-trips COLOR_0 through save and re-read', async () => {
     const bytes = await buildRichFixtureGlb();
-    const { scene, document } = await loadModel(asFile(bytes));
+    const { scene, document } = await loadModel({ name: 'rich.glb', bytes });
     const pairs = pairScenePrimitives(scene, document);
     const vertexCounts = pairs.map((p) => p.primitive.getAttribute('POSITION')!.getCount());
     const total = vertexCounts.reduce((a, b) => a + b, 0);
@@ -76,7 +71,7 @@ describe('injectVertexColors + serializeGlb', () => {
 
   it('preserves everything except COLOR_0', async () => {
     const bytes = await buildRichFixtureGlb();
-    const { scene, document } = await loadModel(asFile(bytes));
+    const { scene, document } = await loadModel({ name: 'rich.glb', bytes });
     const pairs = pairScenePrimitives(scene, document);
     const vertexCounts = pairs.map((p) => p.primitive.getAttribute('POSITION')!.getCount());
     const before = structureSnapshot(document);
@@ -94,7 +89,7 @@ describe('injectVertexColors + serializeGlb', () => {
 
   it('overwrites existing COLOR_0 with baked values', async () => {
     const bytes = await buildRichFixtureGlb();
-    const { scene, document } = await loadModel(asFile(bytes));
+    const { scene, document } = await loadModel({ name: 'rich.glb', bytes });
     const pairs = pairScenePrimitives(scene, document);
     const vertexCounts = pairs.map((p) => p.primitive.getAttribute('POSITION')!.getCount());
     // pre-color everything white

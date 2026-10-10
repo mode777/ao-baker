@@ -4,7 +4,8 @@ import { createViewer } from './viewer/viewer';
 import { applyViewMode, type ViewMode } from './viewer/viewModes';
 import { loadModel } from './loader/loadModel';
 import { pairScenePrimitives } from './loader/documentPairs';
-import { isGlbBinary, validateScene } from './loader/validate';
+import { collectBundle, type InputEntry } from './loader/bundle';
+import { validateScene } from './loader/validate';
 import { injectVertexColors, serializeGlb } from './export/exportGlb';
 import { downloadBytes } from './export/download';
 import { createDropzone } from './ui/dropzone';
@@ -140,18 +141,13 @@ async function exportModel(): Promise<void> {
   downloadBytes(bytes, `${base}-baked.glb`);
 }
 
-async function loadAndShow(file: File): Promise<void> {
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  if (!isGlbBinary(bytes)) {
-    throw new Error('this file is not a glTF binary (GLB)');
-  }
-  const loaded = await loadModel(
-    new File([bytes.buffer as ArrayBuffer], file.name, { type: file.type }),
-  );
+async function loadFromEntries(entries: InputEntry[]): Promise<void> {
+  const primary = await collectBundle(entries);
+  const loaded = await loadModel(primary);
   client.cancel();
   model = loaded.scene;
   document_ = loaded.document;
-  currentFileName = file.name;
+  currentFileName = loaded.name;
   rawBakedColors = null;
   bakedColors = null;
   viewer.setModel(loaded.scene);
@@ -179,10 +175,10 @@ async function loadAndShow(file: File): Promise<void> {
   dropzone.setEmptyState(false);
 }
 
-const dropzone = createDropzone(root, (file) => {
+const dropzone = createDropzone(root, (entries) => {
   dropzone.setError(null);
   warningBanner.hidden = true;
-  loadAndShow(file).catch((error: unknown) => {
+  loadFromEntries(entries).catch((error: unknown) => {
     dropzone.setError(
       error instanceof Error ? `Could not load model: ${error.message}` : 'Could not load model',
     );
