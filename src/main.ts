@@ -5,7 +5,7 @@ import { applyViewMode, type ViewMode } from './viewer/viewModes';
 import { loadModel } from './loader/loadModel';
 import { pairScenePrimitives } from './loader/documentPairs';
 import { collectBundle, type InputEntry } from './loader/bundle';
-import { validateScene } from './loader/validate';
+import { validateScene, missingTexturesIssue, warningMessage } from './loader/validate';
 import { injectVertexColors, serializeGlb } from './export/exportGlb';
 import { downloadBytes } from './export/download';
 import { createDropzone } from './ui/dropzone';
@@ -158,9 +158,9 @@ async function loadFromEntries(entries: InputEntry[]): Promise<void> {
     throw new Error(error.message.toLowerCase());
   }
   bakeData = data;
-  const warning = issues.find((issue) => issue.kind === 'warning');
+  const warning = warningMessage([...missingTexturesIssue(primary.missingTextures), ...issues]);
   if (warning) {
-    warningText.textContent = warning.message;
+    warningText.textContent = warning;
     warningBanner.hidden = false;
   } else {
     warningBanner.hidden = true;
